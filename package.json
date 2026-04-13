@@ -1,0 +1,21 @@
+{
+  "name": "my-userscripts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.13.1",
+  "devDependencies": {
+    "biome": "^0.3.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "rumdl": "^0.1.70",
+    "typescript": "^6.0.2"
+  }
+}
