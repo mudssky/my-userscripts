@@ -20,13 +20,14 @@
     bodyRows: ".art-table-body .art-table-row",
     headerText: ".text",
     cellText: ".text",
+    activeTabPane: ".next-tabs-tabpane.active",
   };
 
   // --- 核心逻辑 ---
 
   // 提取表格数据
-  function parseTable() {
-    const table = document.querySelector(SELECTORS.table);
+  function parseTable(resultContainer) {
+    const table = (resultContainer || document).querySelector(SELECTORS.table);
     if (!table) return null;
 
     // 1. 提取表头
@@ -136,7 +137,13 @@
   }
 
   // 创建按钮
-  function injectButtons(toolbar) {
+  function removeInjectedButtons(toolbar) {
+    toolbar
+      .querySelectorAll("#dms-helper-csv-btn, #dms-helper-md-btn")
+      .forEach((button) => button.remove());
+  }
+
+  function injectButtons(toolbar, resultContainer) {
     if (toolbar.querySelector("#dms-helper-csv-btn")) return;
 
     const createBtn = (text, onClick) => {
@@ -150,14 +157,14 @@
 
     // CSV 按钮
     const csvBtn = createBtn("复制 CSV", () => {
-      const data = parseTable();
+      const data = parseTable(resultContainer);
       if (data) copyText(toCSV(data), "CSV");
     });
     csvBtn.id = "dms-helper-csv-btn";
 
     // Markdown 按钮
     const mdBtn = createBtn("复制 Markdown", () => {
-      const data = parseTable();
+      const data = parseTable(resultContainer);
       if (data) copyText(toMarkdown(data), "Markdown");
     });
     mdBtn.id = "dms-helper-md-btn";
@@ -168,15 +175,35 @@
 
   // --- 初始化入口 (优化版) ---
 
-  // 检查并处理当前页面
-  function checkAndInject() {
-    const resultArea = document.querySelector(SELECTORS.resultContainer);
-    if (resultArea) {
-      const toolbar = resultArea.querySelector(SELECTORS.toolbar);
-      if (toolbar) {
-        injectButtons(toolbar);
+  function getActiveResultContainer() {
+    const resultAreas = document.querySelectorAll(SELECTORS.resultContainer);
+
+    for (const resultArea of resultAreas) {
+      const tabPane = resultArea.closest(".next-tabs-tabpane");
+      if (tabPane?.matches(SELECTORS.activeTabPane)) {
+        return resultArea;
       }
     }
+
+    return null;
+  }
+
+  // 检查并处理当前页面
+  function checkAndInject() {
+    const resultAreas = document.querySelectorAll(SELECTORS.resultContainer);
+    const activeResultArea = getActiveResultContainer();
+
+    resultAreas.forEach((resultArea) => {
+      const toolbar = resultArea.querySelector(SELECTORS.toolbar);
+      if (!toolbar) return;
+
+      if (resultArea === activeResultArea) {
+        injectButtons(toolbar, resultArea);
+        return;
+      }
+
+      removeInjectedButtons(toolbar);
+    });
   }
 
   function init() {
@@ -184,9 +211,7 @@
     checkAndInject();
 
     // 监听页面变化 (SPA 路由切换或内容加载)
-    const observer = new MutationObserver(() => {
-      checkAndInject();
-    });
+    const observer = new MutationObserver(checkAndInject);
 
     // 只监听 body 的直接子节点变化，减少性能消耗
     observer.observe(document.body, { childList: true, subtree: true });
