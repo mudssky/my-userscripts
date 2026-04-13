@@ -24,23 +24,6 @@
 
   // --- 核心逻辑 ---
 
-  // 等待目标元素加载
-  function waitFor(selector, root = document) {
-    return new Promise((resolve) => {
-      if (root.querySelector(selector)) {
-        return resolve(root.querySelector(selector));
-      }
-      const observer = new MutationObserver((mutations, obs) => {
-        const el = root.querySelector(selector);
-        if (el) {
-          obs.disconnect();
-          resolve(el);
-        }
-      });
-      observer.observe(root, { childList: true, subtree: true });
-    });
-  }
-
   // 提取表格数据
   function parseTable() {
     const table = document.querySelector(SELECTORS.table);
@@ -129,99 +112,83 @@
     }
   }
 
-  // --- 优化后的 Toast 提示 ---
+  // Toast 提示
   function showToast(message) {
-    // 移除已存在的 toast 防止堆叠
     const existingToast = document.getElementById("dms-custom-toast");
-    if (existingToast) {
-      existingToast.remove();
-    }
+    if (existingToast) existingToast.remove();
 
     const toast = document.createElement("div");
     toast.id = "dms-custom-toast";
     toast.textContent = message;
-
-    // 注入样式
     toast.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #333;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 4px;
-            font-size: 14px;
-            z-index: 999999;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none; /* 让点击穿透，不影响操作 */
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background-color: #333; color: #fff; padding: 10px 20px; border-radius: 4px;
+            font-size: 14px; z-index: 999999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
         `;
-
     document.body.appendChild(toast);
 
-    // 淡入
-    requestAnimationFrame(() => {
-      toast.style.opacity = "1";
-    });
-
-    // 2.5秒后淡出并移除
+    requestAnimationFrame(() => (toast.style.opacity = "1"));
     setTimeout(() => {
       toast.style.opacity = "0";
-      setTimeout(() => {
-        if (toast.parentNode) {
-          toast.parentNode.removeChild(toast);
-        }
-      }, 300);
+      setTimeout(() => toast.parentNode?.removeChild(toast), 300);
     }, 2500);
   }
 
   // 创建按钮
   function injectButtons(toolbar) {
-    // 防止重复添加
     if (toolbar.querySelector("#dms-helper-csv-btn")) return;
 
-    const btnStyle = "margin-left: 8px;";
+    const createBtn = (text, onClick) => {
+      const btn = document.createElement("button");
+      btn.className = "next-btn next-small next-btn-normal is-wind";
+      btn.style.marginLeft = "8px";
+      btn.textContent = text;
+      btn.onclick = onClick;
+      return btn;
+    };
 
     // CSV 按钮
-    const csvBtn = document.createElement("button");
-    csvBtn.id = "dms-helper-csv-btn";
-    csvBtn.className = "next-btn next-small next-btn-normal is-wind";
-    csvBtn.style.cssText = btnStyle;
-    csvBtn.textContent = "复制 CSV";
-    csvBtn.onclick = () => {
+    const csvBtn = createBtn("复制 CSV", () => {
       const data = parseTable();
       if (data) copyText(toCSV(data), "CSV");
-    };
+    });
+    csvBtn.id = "dms-helper-csv-btn";
 
     // Markdown 按钮
-    const mdBtn = document.createElement("button");
-    mdBtn.id = "dms-helper-md-btn";
-    mdBtn.className = "next-btn next-small next-btn-normal is-wind";
-    mdBtn.style.cssText = btnStyle;
-    mdBtn.textContent = "复制 Markdown";
-    mdBtn.onclick = () => {
+    const mdBtn = createBtn("复制 Markdown", () => {
       const data = parseTable();
       if (data) copyText(toMarkdown(data), "Markdown");
-    };
+    });
+    mdBtn.id = "dms-helper-md-btn";
 
     toolbar.appendChild(csvBtn);
     toolbar.appendChild(mdBtn);
   }
 
-  // --- 初始化入口 ---
-  async function init() {
-    const observer = new MutationObserver(async () => {
-      const resultArea = document.querySelector(SELECTORS.resultContainer);
-      if (resultArea) {
-        const toolbar = resultArea.querySelector(SELECTORS.toolbar);
-        if (toolbar) {
-          injectButtons(toolbar);
-        }
+  // --- 初始化入口 (优化版) ---
+
+  // 检查并处理当前页面
+  function checkAndInject() {
+    const resultArea = document.querySelector(SELECTORS.resultContainer);
+    if (resultArea) {
+      const toolbar = resultArea.querySelector(SELECTORS.toolbar);
+      if (toolbar) {
+        injectButtons(toolbar);
       }
+    }
+  }
+
+  function init() {
+    // 初始检查
+    checkAndInject();
+
+    // 监听页面变化 (SPA 路由切换或内容加载)
+    const observer = new MutationObserver(() => {
+      checkAndInject();
     });
 
+    // 只监听 body 的直接子节点变化，减少性能消耗
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
